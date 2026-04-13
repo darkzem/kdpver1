@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KDP Paperback Cover Formatter</title>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111827;
+      --panel2:#1f2937;
+      --line:#374151;
+      --text:#f9fafb;
+      --muted:#9ca3af;
+      --good:#34d399;
+      --warn:#f59e0b;
+      --bad:#f87171;
+      --accent:#60a5fa;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,#08101d 0%,#111827 100%);
+    }
+
+    .wrap{
+      max-width:1500px;
+      margin:0 auto;
+      padding:18px;
+      display:grid;
+      grid-template-columns:390px 1fr;
+      gap:18px;
+    }
+
+    .panel,.stage{
+      background:rgba(17,24,39,.97);
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:0 18px 48px rgba(0,0,0,.28);
+    }
+
+    .panel{
+      padding:16px;
+      position:sticky;
+      top:12px;
+      align-self:start;
+      max-height:calc(100vh - 24px);
+      overflow:auto;
+    }
+
+    .stage{
+      padding:14px;
+      overflow:auto;
+      min-height:calc(100vh - 36px);
+    }
+
+    h1,h2,h3,p{margin-top:0}
+    h1{font-size:24px;margin-bottom:10px}
+    h2{font-size:17px;margin:18px 0 10px}
+    p,li,label,input,button,select,textarea{
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .muted{color:var(--muted)}
+    .good{color:var(--good)}
+    .warn{color:var(--warn)}
+    .bad{color:var(--bad)}
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .field{margin-bottom:12px}
+
+    label{
+      display:block;
+      font-weight:700;
+      margin-bottom:6px;
+      color:#e5e7eb;
+    }
+
+    input[type="number"],input[type="text"],select{
+      width:100%;
+      padding:10px 12px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:#0f172a;
+      color:var(--text);
+    }
+
+    input[type="file"]{
+      width:100%;
+      padding:12px;
+      border-radius:10px;
+      border:1px dashed var(--line);
+      background:#0f172a;
+      color:var(--text);
+    }
+
+    .check{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:10px;
+    }
+
+    .check label{
+      margin:0;
+      font-weight:600;
+    }
+
+    button{
+      width:100%;
+      border:0;
+      border-radius:12px;
+      padding:12px 14px;
+      font-weight:700;
+      cursor:pointer;
+      color:white;
+      background:linear-gradient(180deg,#3b82f6 0%,#2563eb 100%);
+      margin-top:8px;
+    }
+
+    button.secondary{
+      background:linear-gradient(180deg,#4b5563 0%,#374151 100%);
+    }
+
+    button.warnbtn{
+      background:linear-gradient(180deg,#f59e0b 0%,#d97706 100%);
+    }
+
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    .note,.stat,.banner{
+      background:#0f172a;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:12px;
+      margin-top:10px;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:12px;
+    }
+
+    .stat strong{
+      display:block;
+      color:var(--muted);
+      margin-bottom:6px;
+      font-size:12px;
+    }
+
+    .small{font-size:12px;color:var(--muted)}
+
+    .pill{
+      display:inline-block;
+      padding:4px 10px;
+      border:1px solid var(--line);
+      background:#111827;
+      border-radius:999px;
+      margin:0 6px 6px 0;
+      font-size:12px;
+    }
+
+    .canvas-wrap{
+      min-height:calc(100vh - 64px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:auto;
+    }
+
+    canvas{
+      background:white;
+      box-shadow:0 28px 70px rgba(0,0,0,.38);
+      border-radius:8px;
+      max-width:100%;
+      height:auto;
+      cursor:crosshair;
+    }
+
+    canvas.dragging{
+      cursor:grabbing;
+    }
+
+    .toolbar{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .row3{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    @media (max-width:1160px){
+      .wrap{grid-template-columns:1fr}
+      .panel{
+        position:static;
+        max-height:none;
+      }
+      .canvas-wrap{min-height:auto}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>KDP Paperback Cover Formatter</h1>
+      <p class="muted">
+        Upload one full wrap image containing back, spine, and front.
+        This tool previews the layout and exports exact-size PNG or PDF.
+      </p>
+
+      <div class="banner">
+        <strong>Preset loaded</strong>
+        <div class="small">
+          6.000" × 9.000" trim, 0.125" bleed, 0.511" spine, full wrap 12.761" × 9.250"
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="imageInput">Upload full wrap image</label>
+        <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" />
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="totalWidth">Full width (in)</label>
+          <input id="totalWidth" type="number" step="0.001" value="12.761" />
+        </div>
+        <div class="field">
+          <label for="totalHeight">Full height (in)</label>
+          <input id="totalHeight" type="number" step="0.001" value="9.25" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="trimWidth">Trim width (in)</label>
+          <input id="trimWidth" type="number" step="0.001" value="6" />
+        </div>
+        <div class="field">
+          <label for="trimHeight">Trim height (in)</label>
+          <input id="trimHeight" type="number" step="0.001" value="9" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="spineWidth">Spine width (in)</label>
+          <input id="spineWidth" type="number" step="0.001" value="0.511" />
+        </div>
+        <div class="field">
+          <label for="bleed">Bleed (in)</label>
+          <input id="bleed" type="number" step="0.001" value="0.125" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="spineMarginX">Spine side margin (in)</label>
+          <input id="spineMarginX" type="number" step="0.001" value="0.062" />
+        </div>
+        <div class="field">
+          <label for="spineMarginY">Spine top/bottom margin (in)</label>
+          <input id="spineMarginY" type="number" step="0.001" value="0.062" />
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label for="barcodeMargin">Barcode margin (in)</label>
+          <input id="barcodeMargin" type="number" step="0.001" value="0.25" />
+        </div>
+        <div class="field">
+          <label for="dpi">Export DPI</label>
+          <input id="dpi" type="number" step="1" value="300" />
+        </div>
+      </div>
+
+      <div class="check">
+        <input id="lockPreset" type="checkbox" checked />
+        <label for="lockPreset">Lock measurements to this paperback preset</label>
+      </div>
+
+      <div class="check">
+        <input id="showGuides" type="checkbox" checked />
+        <label for="showGuides">Show trim, bleed, spine, and safe guides</label>
+      </div>
+
+      <div class="check">
+        <input id="showBarcodeBox" type="checkbox" checked />
+        <label for="showBarcodeBox">Show barcode keep-clear box</label>
+      </div>
+
+      <div class="check">
+        <input id="includeGuidesInExport" type="checkbox" />
+        <label for="includeGuidesInExport">Include guides in exported files</label>
+      </div>
+
+      <div class="check">
+        <input id="fillBackground" type="checkbox" checked />
+        <label for="fillBackground">Fill empty uncovered areas white</label>
+      </div>
+
+      <div class="check">
+        <input id="softProofCmyk" type="checkbox" />
+        <label for="softProofCmyk">Approximate CMYK preview on screen</label>
+      </div>
+
+      <div class="toolbar">
+        <button id="fitButton" class="secondary">Fit image</button>
+        <button id="centerSpineButton" class="secondary">Center on spine</button>
+      </div>
+
+      <div class="toolbar">
+        <button id="zoomOutButton" class="secondary">Zoom out</button>
+        <button id="zoomInButton" class="secondary">Zoom in</button>
+      </div>
+
+      <div class="row3">
+        <button id="nudgeLeftButton" class="secondary">←</button>
+        <button id="nudgeUpButton" class="secondary">↑</button>
+        <button id="nudgeRightButton" class="secondary">→</button>
+      </div>
+
+      <div class="row3">
+        <div></div>
+        <button id="nudgeDownButton" class="secondary">↓</button>
+        <div></div>
+      </div>
+
+      <button id="copySelectionButton" class="secondary" disabled>Copy selection</button>
+      <button id="pasteSelectionButton" class="secondary" disabled>Paste copy</button>
+      <button id="deleteActiveButton" class="secondary" disabled>Delete active pasted copy</button>
+
+      <button id="exportPngButton" disabled>Export exact-size PNG</button>
+      <button id="exportPdfButton" disabled>Export exact-size PDF</button>
+      <button id="exportPrintPdfButton" class="warnbtn" disabled>Export flattened print PDF</button>
+
+      <div class="stats">
+        <div class="stat"><strong>Pixel width</strong><span id="pxWidth"></span></div>
+        <div class="stat"><strong>Pixel height</strong><span id="pxHeight"></span></div>
+        <div class="stat"><strong>PDF width</strong><span id="ptWidth"></span></div>
+        <div class="stat"><strong>PDF height</strong><span id="ptHeight"></span></div>
+      </div>
+
+      <div class="note">
+        <div>
+          <span class="pill">Back</span>
+          <span class="pill">Spine</span>
+          <span class="pill">Front</span>
+          <span class="pill">Bleed</span>
+          <span class="pill">Barcode box</span>
+        </div>
+        <p class="small">
+          Drag on empty space to create a rectangular selection. Use Copy Selection or Ctrl+C.
+          Paste with the button or Ctrl+V. Move pasted copies by dragging them. Resize pasted
+          copies by dragging the corner handles or using the mouse wheel while one is active.
+        </p>
+        <p class="small">
+          Hold <strong>Shift</strong> and drag if you want to move the base cover image itself.
+        </p>
+      </div>
+
+      <div class="note">
+        <p id="status" class="small">Waiting for an image.</p>
+      </div>
+
+      <div class="note">
+        <strong>About CMYK</strong>
+        <p class="small">
+          This tool gives you exact physical sizing and a flattened image-based PDF.
+          The CMYK checkbox is only a rough on-screen preview, not true ICC press conversion.
+        </p>
+      </div>
+
+      <div class="hint">
+        Files needed in the same folder: <strong>index.html</strong> and <strong>app.js</strong>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="canvas-wrap">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
