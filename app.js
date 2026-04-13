@@ -790,7 +790,7 @@ function enableButtons() {
   els.exportPrintPdfButton.disabled = !ready;
 
   if (els.copySelectionButton) {
-    els.copySelectionButton.disabled = !ready;
+    els.copySelectionButton.disabled = !ready || !selectionRect;
   }
 
   if (els.pasteSelectionButton) {
@@ -1003,6 +1003,7 @@ document.addEventListener("keydown", (event) => {
     if (activeOverlayId !== null) {
       event.preventDefault();
       deleteActiveOverlay();
+      enableButtons();
     }
     return;
   }
